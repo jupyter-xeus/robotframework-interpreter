@@ -5,6 +5,7 @@ import os
 from tempfile import TemporaryDirectory
 
 from robot.api import get_model
+from robot.errors import DataError
 from robot.running.model import TestSuite
 from robot.running.builder.testsettings import TestDefaults
 from robot.running.builder.parsers import ErrorReporter
@@ -42,6 +43,9 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults()):
     # this is needed so that we don't run them again in the next execution
     clean_items(suite.tests)
 
+    # Detect RPA
+    suite.rpa = get_rpa_mode(model)
+
     return result
 
 
@@ -56,3 +60,13 @@ def strip_duplicate_items(items: ItemList):
 def clean_items(items: ItemList):
     """Remove elements from an item list."""
     items._items = []
+
+
+def get_rpa_mode(model):
+    """Get RPA mode for the test suite."""
+    if not model:
+        return None
+    tasks = [s.tasks for s in model.sections if hasattr(s, 'tasks')]
+    if all(tasks) or not any(tasks):
+        return tasks[0] if tasks else None
+    raise DataError('One file cannot have both tests and tasks.')

@@ -14,7 +14,7 @@ setup(
     license='BSD 3-Clause',
     keywords='robotframework interpreter',
     packages=find_packages(),
-    python_requires='!=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*',
+    python_requires='>=3.6',
     install_requires=['robotframework>=3.2'],
     extras_require={
         'testing': ['flake8'],
