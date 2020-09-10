@@ -1,3 +1,4 @@
 build/*
 dist/*
 robotframework_interpreter.egg-info/*
+robotframework_interpreter/__pycache__/*
