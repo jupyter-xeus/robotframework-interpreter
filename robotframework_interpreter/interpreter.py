@@ -18,7 +18,7 @@ def init_suite(name: str, source: str=os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults()):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), stdout=StringIO(), stderr=StringIO()):
     """Execute a snippet of code, given the current test suite."""
     # Compile AST
     model = get_model(
@@ -35,9 +35,8 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults()):
     strip_duplicate_items(suite.resource.keywords)
 
     # Execute suite
-    stdout = StringIO()
     with TemporaryDirectory() as path:
-        result = suite.run(outputdir=path, stdout=stdout)
+        result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
 
     # Remove tests run so far,
     # this is needed so that we don't run them again in the next execution
