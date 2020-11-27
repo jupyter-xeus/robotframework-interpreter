@@ -2,6 +2,7 @@
 
 from io import StringIO
 import os
+import re
 from tempfile import TemporaryDirectory
 
 from robot.api import get_model
@@ -11,6 +12,9 @@ from robot.running.builder.testsettings import TestDefaults
 from robot.running.builder.parsers import ErrorReporter
 from robot.running.builder.transformers import SettingsBuilder, SuiteBuilder
 from robot.model.itemlist import ItemList
+
+from .utils import detect_robot_context, line_at_cursor, scored_results
+from .constants import VARIABLE_REGEXP
 
 
 def init_suite(name: str, source: str=os.getcwd()):
@@ -46,6 +50,39 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), 
     suite.rpa = get_rpa_mode(model)
 
     return result
+
+
+def complete(code: str, cursor_pos: int, suite: TestSuite):
+    """Complete a snippet of code, given the current test suite."""
+    context = detect_robot_context(code, cursor_pos)
+    cursor_pos = cursor_pos is None and len(code) or cursor_pos
+    line, offset = line_at_cursor(code, cursor_pos)
+    line_cursor = cursor_pos - offset
+    needle = re.split(r"\s{2,}|\t| \| ", line[:line_cursor])[-1].lstrip()
+
+    matches = []
+
+    # If it's a variable completion
+    if needle and needle[0] in "$@&%":
+        potential_vars = list(set([var.name for var in suite.resource.variables] + VARIABLE_REGEXP.findall(code)))
+
+        matches = [
+            m["ref"]
+            for m in scored_results(needle, [dict(ref=v) for v in potential_vars])
+            if needle.lower() in m["ref"].lower()
+        ]
+
+        if len(line) > line_cursor and line[line_cursor] == "}":
+            cursor_pos += 1
+            needle += "}"
+
+    return {
+        "matches": matches,
+        "cursor_end": cursor_pos,
+        "cursor_start": cursor_pos - len(needle),
+        "metadata": {},
+        "status": "ok",
+    }
 
 
 def strip_duplicate_items(items: ItemList):
