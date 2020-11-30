@@ -1,1 +1,1 @@
-from .interpreter import init_suite, execute  # noqa
+from .interpreter import init_suite, execute, complete  # noqa
