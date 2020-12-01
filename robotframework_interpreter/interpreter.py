@@ -13,8 +13,12 @@ from robot.running.builder.parsers import ErrorReporter
 from robot.running.builder.transformers import SettingsBuilder, SuiteBuilder
 from robot.model.itemlist import ItemList
 
-from .utils import detect_robot_context, line_at_cursor, scored_results
+from .utils import (
+    detect_robot_context, line_at_cursor, scored_results,
+    complete_libraries, get_lunr_completions, remove_prefix
+)
 from .constants import VARIABLE_REGEXP
+from .listeners import RobotKeywordsIndexerListener
 
 
 def init_suite(name: str, source: str=os.getcwd()):
@@ -22,7 +26,7 @@ def init_suite(name: str, source: str=os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), stdout=StringIO(), stderr=StringIO()):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), stdout=StringIO(), stderr=StringIO(), listeners=None):
     """Execute a snippet of code, given the current test suite."""
     # Compile AST
     model = get_model(
@@ -38,9 +42,16 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), 
     strip_duplicate_items(suite.resource.variables)
     strip_duplicate_items(suite.resource.keywords)
 
+    for listener in listeners:
+        if isinstance(listener, RobotKeywordsIndexerListener):
+            listener.import_from_suite_data(suite)
+
     # Execute suite
     with TemporaryDirectory() as path:
-        result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
+        if listeners is not None:
+            result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
+        else:
+            result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
 
     # Remove tests run so far,
     # this is needed so that we don't run them again in the next execution
@@ -52,7 +63,7 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), 
     return result
 
 
-def complete(code: str, cursor_pos: int, suite: TestSuite):
+def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener=None):
     """Complete a snippet of code, given the current test suite."""
     context = detect_robot_context(code, cursor_pos)
     cursor_pos = cursor_pos is None and len(code) or cursor_pos
@@ -62,7 +73,7 @@ def complete(code: str, cursor_pos: int, suite: TestSuite):
 
     matches = []
 
-    # If it's a variable completion
+    # Try to complete a variable
     if needle and needle[0] in "$@&%":
         potential_vars = list(set([var.name for var in suite.resource.variables] + VARIABLE_REGEXP.findall(code)))
 
@@ -75,6 +86,31 @@ def complete(code: str, cursor_pos: int, suite: TestSuite):
         if len(line) > line_cursor and line[line_cursor] == "}":
             cursor_pos += 1
             needle += "}"
+    # Try to complete a library name
+    elif context == "__settings__" and any(
+            [
+                line.lower().startswith("library "),
+                "import library " in line.lower(),
+                "reload library " in line.lower(),
+                "get library instance" in line.lower(),
+            ]
+        ):
+
+        needle = needle.lower()
+        needle = remove_prefix(needle, 'library ')
+        needle = remove_prefix(needle, 'import library ')
+        needle = remove_prefix(needle, 'reload library ')
+        needle = remove_prefix(needle, 'get library instance ')
+
+        matches = complete_libraries(needle)
+    # Try to complete a keyword
+    elif keywords_listener is not None:
+        matches = get_lunr_completions(
+            needle,
+            keywords_listener.index,
+            keywords_listener.keywords,
+            context
+        )
 
     return {
         "matches": matches,
