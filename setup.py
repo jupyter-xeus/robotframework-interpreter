@@ -15,7 +15,10 @@ setup(
     keywords='robotframework interpreter',
     packages=find_packages(),
     python_requires='>=3.6',
-    install_requires=['robotframework>=3.2'],
+    install_requires=[
+        'robotframework>=3.2',
+        'lunr'
+    ],
     extras_require={
         'testing': ['flake8'],
     },
