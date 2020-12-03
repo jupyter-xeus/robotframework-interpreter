@@ -1,6 +1,7 @@
 from .utils import lunr_builder
 from .constants import CONTEXT_LIBRARIES
 
+from robot.errors import DataError
 from robot.libdocpkg import LibraryDocumentation
 
 

@@ -33,7 +33,7 @@ def detect_robot_context(code: str, cursor_pos: int):
             return "__root__"
 
 
-def line_at_cursor(code: str, cursor_pos: int=0):
+def line_at_cursor(code: str, cursor_pos: int = 0):
     """Return the line of code that is at the cursor position."""
     offset = 0
     lines = code.splitlines(True)
