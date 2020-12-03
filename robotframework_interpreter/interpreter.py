@@ -21,12 +21,12 @@ from .constants import VARIABLE_REGEXP
 from .listeners import RobotKeywordsIndexerListener
 
 
-def init_suite(name: str, source: str=os.getcwd()):
+def init_suite(name: str, source: str = os.getcwd()):
     """Create a new test suite."""
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), stdout=StringIO(), stderr=StringIO(), listeners=None):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=StringIO(), stderr=StringIO(), listeners=None):
     """Execute a snippet of code, given the current test suite."""
     # Compile AST
     model = get_model(
@@ -63,13 +63,22 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults=TestDefaults(), 
     return result
 
 
-def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener=None):
+def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None):
     """Complete a snippet of code, given the current test suite."""
     context = detect_robot_context(code, cursor_pos)
     cursor_pos = cursor_pos is None and len(code) or cursor_pos
     line, offset = line_at_cursor(code, cursor_pos)
     line_cursor = cursor_pos - offset
     needle = re.split(r"\s{2,}|\t| \| ", line[:line_cursor])[-1].lstrip()
+
+    library_completion = context == "__settings__" and any(
+        [
+            line.lower().startswith("library "),
+            "import library " in line.lower(),
+            "reload library " in line.lower(),
+            "get library instance" in line.lower(),
+        ]
+    )
 
     matches = []
 
@@ -87,15 +96,7 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
             cursor_pos += 1
             needle += "}"
     # Try to complete a library name
-    elif context == "__settings__" and any(
-            [
-                line.lower().startswith("library "),
-                "import library " in line.lower(),
-                "reload library " in line.lower(),
-                "get library instance" in line.lower(),
-            ]
-        ):
-
+    elif library_completion:
         needle = needle.lower()
         needle = remove_prefix(needle, 'library ')
         needle = remove_prefix(needle, 'import library ')

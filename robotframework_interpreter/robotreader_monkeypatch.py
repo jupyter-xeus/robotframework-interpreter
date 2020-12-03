@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-from io import BytesIO, StringIO
+from io import StringIO
 
-from robot.errors import DataError
 import os
 import re
 import sys
