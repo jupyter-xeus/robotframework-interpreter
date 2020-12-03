@@ -26,7 +26,7 @@ def init_suite(name: str, source: str = os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=StringIO(), stderr=StringIO(), listeners=None):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=StringIO(), stderr=StringIO(), listeners=[]):
     """Execute a snippet of code, given the current test suite."""
     # Compile AST
     model = get_model(
@@ -48,7 +48,7 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
 
     # Execute suite
     with TemporaryDirectory() as path:
-        if listeners is not None:
+        if len(listeners):
             result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
         else:
             result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
