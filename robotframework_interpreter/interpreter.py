@@ -4,6 +4,7 @@ from io import StringIO
 import os
 import re
 from tempfile import TemporaryDirectory
+import sys
 
 from robot.api import get_model
 from robot.errors import DataError
@@ -26,7 +27,7 @@ def init_suite(name: str, source: str = os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=StringIO(), stderr=StringIO(), listeners=[]):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=sys.stdout, stderr=sys.stderr, listeners=[]):
     """Execute a snippet of code, given the current test suite."""
     # Compile AST
     model = get_model(
