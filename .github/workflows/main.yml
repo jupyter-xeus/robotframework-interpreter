@@ -29,7 +29,7 @@ jobs:
 
     - name: Create the conda environment
       shell: bash -l {0}
-      run: mamba install -q python=${{ matrix.python_version }} pip robotframework>=3.2 lunr nbformat>=4.4 flake8 pytest
+      run: mamba install -q python=${{ matrix.python_version }} pip robotframework>=3.2 lunr flake8 pytest
 
     - name: Install library
       shell: bash -l {0}

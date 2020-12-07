@@ -17,8 +17,7 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'robotframework>=3.2',
-        'lunr',
-        'nbformat>=4.4'
+        'lunr'
     ],
     extras_require={
         'testing': ['flake8'],
