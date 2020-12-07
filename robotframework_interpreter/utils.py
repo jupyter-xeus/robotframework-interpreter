@@ -68,11 +68,13 @@ def remove_prefix(value, prefix):
     return value
 
 
-def complete_libraries(needle: str,) -> List[str]:
+def complete_libraries(needle: str, extra_libraries: List[str]) -> List[str]:
     """Complete library names."""
     matches = []
 
-    for lib in list(STDLIBS):
+    libs = list(STDLIBS) + extra_libraries
+
+    for lib in libs:
         if lib.lower().startswith(needle):
             matches.append(lib)
 

@@ -3,8 +3,9 @@
 from io import StringIO
 import os
 import re
-from tempfile import TemporaryDirectory
 import sys
+from tempfile import TemporaryDirectory
+from typing import List
 
 from robot.api import get_model
 from robot.errors import DataError
@@ -64,7 +65,7 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
     return result
 
 
-def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None):
+def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, extra_libraries: List[str] = []):
     """Complete a snippet of code, given the current test suite."""
     context = detect_robot_context(code, cursor_pos)
     cursor_pos = cursor_pos is None and len(code) or cursor_pos
@@ -104,7 +105,7 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
         needle = remove_prefix(needle, 'reload library ')
         needle = remove_prefix(needle, 'get library instance ')
 
-        matches = complete_libraries(needle)
+        matches = complete_libraries(needle, extra_libraries)
     # Try to complete a keyword
     elif keywords_listener is not None:
         matches = get_lunr_completions(
