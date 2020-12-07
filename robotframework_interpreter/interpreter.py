@@ -23,13 +23,40 @@ from .constants import VARIABLE_REGEXP
 from .listeners import RobotKeywordsIndexerListener
 
 
+class TestSuiteError(Exception):
+    pass
+
+
+class ErrorStream():
+    def __init__(self):
+        self.message = ''
+
+    def write(self, message, flush=False):
+        self.message = self.message + message
+
+        if flush:
+            self.flush()
+
+    def flush(self):
+        message_copy = str(self.message)
+
+        self.message = ''
+
+        raise TestSuiteError(message_copy)
+
+
 def init_suite(name: str, source: str = os.getcwd()):
     """Create a new test suite."""
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=sys.stdout, stderr=sys.stderr, listeners=[]):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=sys.stdout, stderr=None, listeners=[]):
     """Execute a snippet of code, given the current test suite."""
+    # Copy keywords/variables/libraries in case of failure
+    imports = get_items_copy(suite.resource.imports)
+    variables = get_items_copy(suite.resource.variables)
+    keywords = get_items_copy(suite.resource.keywords)
+
     # Compile AST
     model = get_model(
         StringIO(code),
@@ -44,16 +71,30 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
     strip_duplicate_items(suite.resource.variables)
     strip_duplicate_items(suite.resource.keywords)
 
-    for listener in listeners:
-        if isinstance(listener, RobotKeywordsIndexerListener):
-            listener.import_from_suite_data(suite)
+    # Set default error stream
+    if stderr is None:
+        stderr = ErrorStream()
 
     # Execute suite
     with TemporaryDirectory() as path:
-        if len(listeners):
-            result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
-        else:
-            result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
+        try:
+            if len(listeners):
+                result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
+            else:
+                result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
+        except TestSuiteError as e:
+            # Reset keywords/variables/libraries
+            set_items(suite.resource.imports, imports)
+            set_items(suite.resource.variables, variables)
+            set_items(suite.resource.keywords, keywords)
+
+            clean_items(suite.tests)
+
+            raise e
+
+    for listener in listeners:
+        if isinstance(listener, RobotKeywordsIndexerListener):
+            listener.import_from_suite_data(suite)
 
     # Remove tests run so far,
     # this is needed so that we don't run them again in the next execution
@@ -135,6 +176,16 @@ def strip_duplicate_items(items: ItemList):
 def clean_items(items: ItemList):
     """Remove elements from an item list."""
     items._items = []
+
+
+def set_items(items: ItemList, value: List):
+    """Remove elements from an item list."""
+    items._items = value
+
+
+def get_items_copy(items: ItemList):
+    """Get copy of an itemlist."""
+    return list(items._items)
 
 
 def get_rpa_mode(model):
