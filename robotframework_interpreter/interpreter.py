@@ -163,9 +163,7 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
     return {
         "matches": matches,
         "cursor_end": cursor_pos,
-        "cursor_start": cursor_pos - len(needle),
-        "metadata": {},
-        "status": "ok",
+        "cursor_start": cursor_pos - len(needle)
     }
 
 
