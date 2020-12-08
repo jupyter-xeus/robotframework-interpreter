@@ -19,7 +19,7 @@ from .utils import (
     detect_robot_context, line_at_cursor, scored_results,
     complete_libraries, get_lunr_completions, remove_prefix
 )
-from .constants import VARIABLE_REGEXP
+from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import RobotKeywordsIndexerListener
 
 
@@ -127,7 +127,11 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
 
     # Try to complete a variable
     if needle and needle[0] in "$@&%":
-        potential_vars = list(set([var.name for var in suite.resource.variables] + VARIABLE_REGEXP.findall(code)))
+        potential_vars = list(set(
+            [var.name for var in suite.resource.variables] +
+            VARIABLE_REGEXP.findall(code) +
+            BUILTIN_VARIABLES
+        ))
 
         matches = [
             m["ref"]

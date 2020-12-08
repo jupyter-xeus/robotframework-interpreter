@@ -3,6 +3,28 @@ import re
 
 VARIABLE_REGEXP = re.compile(r"[$@&%]\{[\w\s]+\}")
 
+BUILTIN_VARIABLES = [
+    "${TEMPDIR}",
+    "${EXECDIR}",
+    "${/}",
+    "${:}",
+    "${\\n}",
+    "${SPACE}",
+    "${True}",
+    "${False}",
+    "${None}",
+    "${null}",
+    "${OUTPUT_DIR}",
+    "${OUTPUT_FILE}",
+    "${REPORT_FILE}",
+    "${LOG_FILE}",
+    "${DEBUG_FILE}",
+    "${LOG_LEVEL}",
+    "${PREV_TEST_NAME}",
+    "${PREV_TEST_STATUS}",
+    "${PREV_TEST_MESSAGE}",
+]
+
 CONTEXT_LIBRARIES = {
     "__root__": list(
         map(
