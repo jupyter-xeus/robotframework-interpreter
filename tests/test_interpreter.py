@@ -1,4 +1,4 @@
-from robotframework_interpreter import init_suite, execute
+from robotframework_interpreter import init_suite, execute, complete
 
 
 CELL1 = """\
@@ -8,6 +8,12 @@ Library  Collections
 """
 
 CELL2 = """\
+*** Variables ***
+
+${VARNAME}  Hello
+"""
+
+CELL3 = """\
 *** Keywords ***
 
 Head
@@ -16,13 +22,22 @@ Head
     [Return]  ${value}
 """
 
-CELL3 = """\
+CELL4 = """\
 *** Test Cases ***
 
 Get head
     ${array}=  Create list  1  2  3  4  5
     ${head}=  Head  ${array}
     Should be equal  ${head}  1
+"""
+
+INCOMPLETE_CELL1 = """
+*** Keywords ***
+
+Head
+    [Arguments]  ${list}
+    ${value}=  Get from list  ${list}  0
+    [Return]  ${
 """
 
 
@@ -34,14 +49,29 @@ def test_execution():
     assert len(suite.resource.keywords) == 0
     assert len(suite.tests) == 0
 
-    execute(CELL2, suite)
+    execute(CELL3, suite)
 
     assert len(suite.resource.keywords) == 1
     assert len(suite.tests) == 0
 
-    result = execute(CELL3, suite)
+    result = execute(CELL4, suite)
 
     assert len(suite.resource.keywords) == 1
     assert len(suite.tests) == 0  # Test cases should be cleared between cell code executions
     assert result.statistics.total.critical.failed == 0
     assert result.statistics.total.critical.passed == 1
+
+
+def test_keywords_completion():
+    suite = init_suite('test suite')
+
+    execute(CELL1, suite)
+    execute(CELL2, suite)
+
+    completion = complete(INCOMPLETE_CELL1, len(INCOMPLETE_CELL1) - 1, suite)
+
+    assert '${VARNAME}' in completion['matches']
+    assert '${list}' in completion['matches']
+    assert '${value}' in completion['matches']
+    assert '${False}' in completion['matches']
+    assert '${SPACE}' in completion['matches']
