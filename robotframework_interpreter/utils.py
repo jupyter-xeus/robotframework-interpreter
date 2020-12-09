@@ -1,4 +1,10 @@
+import os
+import base64
+import urllib
+import mimetypes
 import re
+import json
+from json import JSONDecodeError
 from typing import List
 from difflib import SequenceMatcher
 from copy import deepcopy
@@ -10,6 +16,68 @@ from lunr.builder import Builder
 from lunr.stemmer import stemmer
 from lunr.stop_word_filter import stop_word_filter
 from lunr.trimmer import trimmer
+
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_by_name
+import pygments
+
+
+def highlight(language, data):
+    lexer = get_lexer_by_name(language)
+    formatter = HtmlFormatter(noclasses=True, nowrap=True)
+    return pygments.highlight(data, lexer, formatter)
+
+
+def to_html(obj):
+    """Return object as highlighted JSON."""
+    return highlight("json", json.dumps(obj, sort_keys=False, indent=4))
+
+
+def img_to_data(path):
+    mime, _ = mimetypes.guess_type(path)
+
+    if path.startswith("http"):
+        with urllib.request.urlopen(path) as fp:
+            data = fp.read()
+    else:
+        with open(path, 'rb') as fp:
+            data = fp.read()
+
+    data64 = base64.b64encode(data).decode('utf-8')
+    return u'data:%s;base64,%s' % (mime, data64)
+
+
+def to_mime_and_metadata(obj):
+    if isinstance(obj, bytes):
+        obj = base64.b64encode(obj).decode("utf-8")
+        return {"text/html": to_html(obj)}
+    elif isinstance(obj, str) and (obj.startswith("http") or os.path.exists(obj)):
+        if re.match(r".*\.(gif|jpg|svg|jpeg||png)$", obj, re.I):
+            return {"text/html": "<img src='{}'>".format(img_to_data(obj))}
+    elif hasattr(obj, "_repr_mimebundle_"):
+        obj.embed = True
+        return obj._repr_mimebundle_()
+    elif hasattr(obj, "_repr_json_"):
+        obj.embed = True
+        return {"application/json": obj._repr_json_()}
+    elif hasattr(obj, "_repr_html_"):
+        obj.embed = True
+        return {"text/html": obj._repr_html_()}
+    elif hasattr(obj, "_repr_png_"):
+        return {"image/png": obj._repr_png_()}
+    elif hasattr(obj, "_repr_jpeg_"):
+        return {"image/jpeg": obj._repr_jpeg_()}
+    elif hasattr(obj, "_repr_svg_"):
+        return {"image/svg": obj._repr_svg_()}
+    try:
+        if isinstance(obj, str):
+            return {"text/html": f"<pre>{to_html(obj)}</pre>".replace("\\n", "\n")}
+    except (TypeError, JSONDecodeError):
+        pass
+    try:
+        return {"text/html": to_html(obj)}
+    except TypeError:
+        return {}
 
 
 def detect_robot_context(code: str, cursor_pos: int):
