@@ -49,6 +49,30 @@ class BrokenOpenConnection(Exception):
         self.connection = connection
 
 
+def yield_current_connection(connections, types_):
+    current_connections = [
+        connection["instance"]
+        for connection in connections
+        if connection["type"] in types_ and connection["current"]
+    ]
+
+    for instance in current_connections:
+        yield instance
+        break
+
+
+def close_current_connection(connections, connection_to_close):
+    match = None
+    for connection in connections:
+        if connection["instance"] is connection_to_close:
+            match = connection
+            break
+    if match is not None:
+        if hasattr(match["instance"], "quit"):
+            match["instance"].quit()
+        connections.remove(match)
+
+
 IS_SELENIUM_SELECTOR_NEEDLE = re.compile(
     r"^id=|^id:|"
     r"^name=|^name:|"
@@ -74,13 +98,13 @@ IS_TEXT = re.compile(r"^[\w\s]+$", re.U)
 SELECTOR_HIGHLIGHT_STYLE_SCRIPT = """
 (function() {
   var node = document.createElement('style');
-  node.setAttribute('data-name', 'robotkernel');
+  node.setAttribute('data-name', 'robotframework-interpreter');
   node.innerHTML = '' +
-    '[data-robotkernel] {' +
+    '[data-robotframework-interpreter] {' +
       'outline: 2px solid red !important;' +
       'opacity: 1.0 !important;' +
     '}' +
-    '#robotkernel-picker { ' +
+    '#robotframework-interpreter-picker { ' +
       'position: fixed;' +
       'top: 0;' +
       'right: 0;' +
@@ -89,7 +113,7 @@ SELECTOR_HIGHLIGHT_STYLE_SCRIPT = """
       'z-index: 9999;' +
       'cursor: crosshair;' +
     '}' +
-    '#robotkernel-picker::before { ' +
+    '#robotframework-interpreter-picker::before { ' +
       'display: block;' +
       'content: "";' +
       'position: absolute;' +
@@ -101,7 +125,7 @@ SELECTOR_HIGHLIGHT_STYLE_SCRIPT = """
       'opacity: 0.25;' +
       'z-index: -1;' +
     '}' +
-    '#robotkernel-picker::after { ' +
+    '#robotframework-interpreter-picker::after { ' +
       'display: block;' +
       'content: "Click element to select it... (before Selenium timeout).";' +
       'font-size: 12px;' +
@@ -157,14 +181,14 @@ def get_element_highlight_script(results, old_elements):
     elements = [r[1] for r in results]
     for element in old_elements:
         if element not in elements:
-            script += f'arguments[{counter:d}].removeAttribute("data-robotkernel");'
+            script += f'arguments[{counter:d}].removeAttribute("data-robotframework-interpreter");'
             arguments.append(element)
             counter += 1
     for completion, element in results:
         if element not in old_elements:
             script += (
                 f"arguments[{counter:d}].setAttribute("
-                f'"data-robotkernel", "{completion}");'
+                f'"data-robotframework-interpreter", "{completion}");'
             )
             arguments.append(element)
             counter += 1
@@ -174,7 +198,7 @@ def get_element_highlight_script(results, old_elements):
 def clear_selector_highlights(driver):
     try:
         script, arguments = get_element_highlight_script(
-            [], driver.find_elements_by_css_selector("[data-robotkernel]")
+            [], driver.find_elements_by_css_selector("[data-robotframework-interpreter]")
         )
     except InvalidSessionIdException:
         raise BrokenOpenConnection(driver)
@@ -194,10 +218,10 @@ def get_selector_completions(needle, driver):
 def get_selenium_selector_completions(needle, driver):
     try:
         # Inject supporting JS and CSS
-        styles = 'style[data-name="robotkernel"]'
+        styles = 'style[data-name="robotframework-interpreter"]'
         if not driver.find_elements_by_css_selector(styles):
             with pkg_resources.resource_stream(
-                "robotkernel", "resources/simmerjs/simmer.js"
+                "robotframework_interpreter", "resources/simmerjs/simmer.js"
             ) as fp:
                 driver.execute_script(
                     fp.read().decode("utf-8") + SELECTOR_HIGHLIGHT_STYLE_SCRIPT
@@ -215,7 +239,7 @@ def get_selenium_selector_completions(needle, driver):
     # Highlight
     if can_highlight:
         script, arguments = get_element_highlight_script(
-            results, driver.find_elements_by_css_selector("[data-robotkernel]")
+            results, driver.find_elements_by_css_selector("[data-robotframework-interpreter]")
         )
         driver.execute_script(script, *arguments)
 
@@ -421,10 +445,10 @@ def get_selenium_needle_from_user(driver):
         return (
             driver.execute_async_script(
                 """\
-var node = document.getElementById('robotkernel-picker') ||
+var node = document.getElementById('robotframework-interpreter-picker') ||
        document.createElement('div');
 node.callback = arguments[arguments.length - 1];
-node.setAttribute('id', 'robotkernel-picker');
+node.setAttribute('id', 'robotframework-interpreter-picker');
 node.setAttribute('onClick',
 'this.parentNode.removeChild(this);' +
 'this.callback(' +
@@ -441,7 +465,7 @@ document.body.appendChild(node);
     except TimeoutException:
         driver.execute_script(
             """\
-var node = document.getElementById('robotkernel-picker');
+var node = document.getElementById('robotframework-interpreter-picker');
 if (node) { node.parentNode.removeChild(node); }
 """
         )

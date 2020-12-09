@@ -19,6 +19,11 @@ from .utils import (
     detect_robot_context, line_at_cursor, scored_results,
     complete_libraries, get_lunr_completions, remove_prefix
 )
+from .selectors import (
+    BrokenOpenConnection, clear_selector_highlights, get_autoit_selector_completions, get_selector_completions,
+    get_white_selector_completions, get_win32_selector_completions, is_autoit_selector,
+    is_selector, is_white_selector, is_win32_selector, close_current_connection, yield_current_connection
+)
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import RobotKeywordsIndexerListener
 
@@ -50,8 +55,15 @@ def init_suite(name: str, source: str = os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=sys.stdout, stderr=None, listeners=[]):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=sys.stdout, stderr=None, listeners=[], drivers=[]):
     """Execute a snippet of code, given the current test suite."""
+    # Clear selector completion highlights
+    for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter"]):
+        try:
+            clear_selector_highlights(driver)
+        except BrokenOpenConnection:
+            close_current_connection(drivers, driver)
+
     # Copy keywords/variables/libraries in case of failure
     imports = get_items_copy(suite.resource.imports)
     variables = get_items_copy(suite.resource.variables)
@@ -103,7 +115,7 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
     return result
 
 
-def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, extra_libraries: List[str] = []):
+def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, extra_libraries: List[str] = [], drivers=[]):
     """Complete a snippet of code, given the current test suite."""
     context = detect_robot_context(code, cursor_pos)
     cursor_pos = cursor_pos is None and len(code) or cursor_pos
@@ -148,6 +160,20 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
         needle = remove_prefix(needle, 'get library instance ')
 
         matches = complete_libraries(needle, extra_libraries)
+    # Try to complete a CSS selector
+    elif is_selector(needle):
+        matches = []
+        for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter", "appium"]):
+            matches = [get_selector_completions(needle.rstrip(), driver)[0]]
+    # Try to complete an AutoIt selector
+    elif is_autoit_selector(needle):
+        matches = [get_autoit_selector_completions(needle)[0]]
+    # Try to complete a white selector
+    elif is_white_selector(needle):
+        matches = [get_white_selector_completions(needle)[0]]
+    # Try to complete a Windows selector
+    elif is_win32_selector(needle):
+        matches = [get_win32_selector_completions(needle)[0]]
     # Try to complete a keyword
     elif keywords_listener is not None:
         matches = get_lunr_completions(
@@ -162,6 +188,12 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
         "cursor_end": cursor_pos,
         "cursor_start": cursor_pos - len(needle)
     }
+
+
+def shutdown_drivers(drivers=[]):
+    for driver in drivers:
+        if hasattr(driver["instance"], "quit"):
+            driver["instance"].quit()
 
 
 def strip_duplicate_items(items: ItemList):
