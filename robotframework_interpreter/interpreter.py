@@ -78,10 +78,7 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
     # Execute suite
     with TemporaryDirectory() as path:
         try:
-            if len(listeners):
-                result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
-            else:
-                result = suite.run(outputdir=path, stdout=stdout, stderr=stderr)
+            result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
         except TestSuiteError as e:
             # Reset keywords/variables/libraries
             set_items(suite.resource.imports, imports)
