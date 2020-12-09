@@ -50,12 +50,29 @@ class ErrorStream():
         raise TestSuiteError(message_copy)
 
 
+class OutStream():
+    def __init__(self):
+        self.message = ''
+
+    def write(self, message, flush=False):
+        self.message = self.message + message
+
+    def flush(self):
+        # This is a no-op
+        pass
+
+    def flush_stdout(self):
+        print(self.message, file=sys.stdout)
+
+        self.message = ''
+
+
 def init_suite(name: str, source: str = os.getcwd()):
     """Create a new test suite."""
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=sys.stdout, stderr=None, listeners=[], drivers=[]):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=None, stderr=None, listeners=[], drivers=[]):
     """Execute a snippet of code, given the current test suite."""
     # Clear selector completion highlights
     for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter"]):
@@ -83,7 +100,9 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
     strip_duplicate_items(suite.resource.variables)
     strip_duplicate_items(suite.resource.keywords)
 
-    # Set default error stream
+    # Set default streams
+    if stdout is None:
+        stdout = OutStream()
     if stderr is None:
         stderr = ErrorStream()
 
@@ -100,6 +119,11 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
             clean_items(suite.tests)
 
             raise e
+
+    # If there were tests, flush stdout
+    n_tests = result.statistics.total.critical.total
+    if n_tests != 0 and isinstance(stdout, OutStream):
+        stdout.flush_stdout()
 
     for listener in listeners:
         if isinstance(listener, RobotKeywordsIndexerListener):
