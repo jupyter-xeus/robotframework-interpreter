@@ -1,9 +1,11 @@
-from .utils import lunr_builder
-from .constants import CONTEXT_LIBRARIES
+import inspect
 
 from robot.errors import DataError
 from robot.libdocpkg import LibraryDocumentation
 from robot.libraries.BuiltIn import BuiltIn
+
+from .utils import lunr_builder, to_mime_and_metadata
+from .constants import CONTEXT_LIBRARIES
 
 
 class RobotKeywordsIndexerListener:
@@ -79,6 +81,34 @@ class RobotKeywordsIndexerListener:
                     self.resource_import(name, attributes)
         except AttributeError:
             pass
+
+
+class ReturnValueListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(self):
+        self.return_value = None
+
+    def end_keyword(self, name, attributes):
+        if "capture" in name.lower() and "screenshot" in name.lower():
+            # Intentional hack to not include screenshot keywords, because we
+            # can assume their screenshots be embedded into log file and
+            # displayed from that.
+            return
+        frame = inspect.currentframe()
+        while frame is not None:
+            if "return_value" in frame.f_locals:
+                self.return_value = frame.f_locals.get("return_value")
+                break
+            frame = frame.f_back
+
+    def start_test(self, name, attributes):
+        self.return_value = None
+
+    def get_last_value(self):
+        if self.return_value is not None and self.return_value != "" and self.return_value != b"":
+            return to_mime_and_metadata(self.return_value)
+        return None
 
 
 def clear_drivers(drivers, type_):

@@ -19,7 +19,8 @@ setup(
     install_requires=[
         'robotframework>=3.2',
         'lunr',
-        'pillow'
+        'pillow',
+        'pygments'
     ],
     extras_require={
         'testing': ['flake8'],
