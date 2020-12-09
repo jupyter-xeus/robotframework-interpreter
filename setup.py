@@ -14,6 +14,7 @@ setup(
     license='BSD 3-Clause',
     keywords='robotframework interpreter',
     packages=find_packages(),
+    include_package_data=True,
     python_requires='>=3.6',
     install_requires=[
         'robotframework>=3.2',

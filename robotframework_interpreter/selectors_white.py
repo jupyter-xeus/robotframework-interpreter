@@ -185,7 +185,7 @@ class PickSnipTool(Form):
 
 
 class WhiteLibraryCompanion:
-    """Complementary keyword library to use OpenCV based image recognition with RobotKernel and WhiteLibrary.
+    """Complementary keyword library to use OpenCV based image recognition with WhiteLibrary.
     """
 
     def match_template(self, template: str, similarity: float = 0.8):
