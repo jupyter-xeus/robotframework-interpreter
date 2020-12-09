@@ -3,6 +3,7 @@ from .constants import CONTEXT_LIBRARIES
 
 from robot.errors import DataError
 from robot.libdocpkg import LibraryDocumentation
+from robot.libraries.BuiltIn import BuiltIn
 
 
 class RobotKeywordsIndexerListener:
@@ -77,4 +78,186 @@ class RobotKeywordsIndexerListener:
                     name = import_data.name
                     self.resource_import(name, attributes)
         except AttributeError:
+            pass
+
+
+def clear_drivers(drivers, type_):
+    remained = []
+    for driver in drivers:
+        if driver.get("type") != type_:
+            remained.append(driver)
+    drivers.clear()
+    drivers.extend(remained)
+
+
+def get_webdrivers(cache, type_):
+    drivers = []
+    for idx in range(len(cache._connections)):
+        conn = cache._connections[idx]
+        if conn in cache._closed:
+            continue
+        aliases = []
+        for alias, idx_ in cache._aliases.items():
+            if (idx + 1) == idx_:
+                aliases.append(alias)
+        drivers.append(
+            dict(
+                instance=conn,
+                aliases=aliases,
+                current=conn == cache.current,
+                type=type_,
+            )
+        )
+    return drivers
+
+
+def set_webdrivers(drivers, cache, type_):
+    idx = 1
+    for driver in drivers:
+        if driver["type"] != type_:
+            continue
+        cache._connections.append(driver["instance"])
+        for alias in driver["aliases"]:
+            cache._aliases[alias] = idx
+        if driver["current"]:
+            cache.current = driver["instance"]
+        idx += 1
+
+
+class SeleniumConnectionsListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(self, drivers: list):
+        self.drivers = drivers
+
+    def end_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            try:
+                instance = builtin.get_library_instance("SeleniumLibrary")
+            except RuntimeError:
+                instance = builtin.get_library_instance("Selenium2Library")
+            clear_drivers(self.drivers, "selenium")
+            self.drivers.extend(get_webdrivers(instance._drivers, "selenium"))
+        except RuntimeError:
+            pass
+
+    def start_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            try:
+                instance = builtin.get_library_instance("SeleniumLibrary")
+            except RuntimeError:
+                instance = builtin.get_library_instance("Selenium2Library")
+            set_webdrivers(self.drivers, instance._drivers, "selenium")
+        except RuntimeError:
+            pass
+
+
+class RpaBrowserConnectionsListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(self, drivers: list):
+        self.drivers = drivers
+
+    def end_suite(self, name, attributes):
+        try:
+            instance = BuiltIn().get_library_instance("RPA.Browser")
+            clear_drivers(self.drivers, "RPA.Browser")
+            self.drivers.extend(get_webdrivers(instance._drivers, "RPA.Browser"))
+        except RuntimeError:
+            pass
+
+    def start_suite(self, name, attributes):
+        try:
+            instance = BuiltIn().get_library_instance("RPA.Browser")
+            set_webdrivers(self.drivers, instance._drivers, "RPA.Browser")
+        except RuntimeError:
+            pass
+
+
+class JupyterConnectionsListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(self, drivers: list):
+        self.drivers = drivers
+
+    def end_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            instance = builtin.get_library_instance("JupyterLibrary")
+            clear_drivers(self.drivers, "jupyter")
+            self.drivers.extend(get_webdrivers(instance._drivers, "jupyter"))
+        except RuntimeError:
+            pass
+
+    def start_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            instance = builtin.get_library_instance("JupyterLibrary")
+            set_webdrivers(self.drivers, instance._drivers, "jupyter")
+        except RuntimeError:
+            pass
+
+
+class AppiumConnectionsListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(self, drivers: list):
+        self.drivers = drivers
+
+    def end_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            instance = builtin.get_library_instance("AppiumLibrary")
+            clear_drivers(self.drivers, "appium")
+            self.drivers.extend(get_webdrivers(instance._cache, "appium"))
+        except RuntimeError:
+            pass
+
+    def start_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            instance = builtin.get_library_instance("AppiumLibrary")
+            set_webdrivers(self.drivers, instance._cache, "appium")
+        except RuntimeError:
+            pass
+
+
+class WhiteLibraryListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    def __init__(self, drivers: list):
+        self.drivers = drivers
+
+    def end_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            instance = builtin.get_library_instance("WhiteLibrary")
+            clear_drivers(self.drivers, "white")
+            self.drivers.append(
+                dict(
+                    instance=(
+                        getattr(instance, "app", None),
+                        getattr(instance, "window", None),
+                        getattr(instance, "screenshotter", None),
+                    ),
+                    aliases=[],
+                    current=True,
+                    type="white",
+                )
+            )
+        except RuntimeError:
+            pass
+
+    def start_suite(self, name, attributes):
+        try:
+            builtin = BuiltIn()
+            instance = builtin.get_library_instance("WhiteLibrary")
+            for driver in self.drivers:
+                if driver.get("type") == "white" and driver.get("current"):
+                    setattr(instance, "app", driver["instance"][0])
+                    setattr(instance, "window", driver["instance"][1])
+                    setattr(instance, "screenshotter", driver["instance"][2])
+        except RuntimeError:
             pass
