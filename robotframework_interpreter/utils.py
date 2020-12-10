@@ -1,6 +1,9 @@
 import os
+from io import BytesIO
 import base64
+import binascii
 import urllib
+from urllib.parse import unquote
 import mimetypes
 import re
 import json
@@ -12,6 +15,8 @@ from operator import itemgetter
 
 from robot.libraries import STDLIBS
 
+from PIL import Image
+
 from lunr.builder import Builder
 from lunr.stemmer import stemmer
 from lunr.stop_word_filter import stop_word_filter
@@ -20,6 +25,67 @@ from lunr.trimmer import trimmer
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 import pygments
+
+from .constants import SCRIPT_DISPLAY_LOG
+
+
+def data_uri(mimetype, data):
+    return "data:{};base64,{}".format(mimetype, base64.b64encode(data).decode("utf-8"))
+
+
+def process_screenshots(outputdir: str):
+    cwd = os.getcwd()
+
+    with open(os.path.join(outputdir, "output.xml")) as fp:
+        xml = fp.read()
+
+    for src in re.findall('img src="([^"]+)', xml):
+        if os.path.exists(src):
+            filename = src
+        elif os.path.exists(os.path.join(outputdir, src)):
+            filename = os.path.join(outputdir, src)
+        elif os.path.exists(os.path.join(cwd, src)):
+            filename = os.path.join(cwd, src)
+        elif src.startswith("data:"):
+            filename = None
+            try:
+                spec, uri = src.split(",", 1)
+                spec, encoding = spec.split(";", 1)
+                spec, mimetype = spec.split(":", 1)
+                if not (encoding == "base64" and mimetype.startswith("image/")):
+                    continue
+                data = base64.b64decode(unquote(uri).encode("utf-8"))
+                im = Image.open(BytesIO(data))
+            except (binascii.Error, IndexError, ValueError):
+                continue
+        else:
+            continue
+        if filename:
+            im = Image.open(filename)
+            mimetype = Image.MIME[im.format]
+            # Fix issue where Pillow on Windows returns APNG for PNG
+            if mimetype == "image/apng":
+                mimetype = "image/png"
+            with open(filename, "rb") as fp:
+                data = fp.read()
+        uri = data_uri(mimetype, data)
+        xml = xml.replace('a href="{}"'.format(src), "a")
+        xml = xml.replace(
+            'img src="{}" width="800px"'.format(src),
+            'img src="{}" style="max-width:800px;"'.format(uri),
+        )
+        xml = xml.replace('img src="{}"'.format(src), 'img src="{}"'.format(uri))
+
+    with open(os.path.join(outputdir, "output.xml"), "w") as fp:
+        fp.write(xml)
+
+
+def display_log(html, filename=""):
+    if isinstance(html, str):
+        html = html.encode("utf-8")
+    return SCRIPT_DISPLAY_LOG.format(
+        content=base64.b64encode(html).decode("utf-8"), filename=filename
+    )
 
 
 def highlight(language, data):
@@ -43,8 +109,7 @@ def img_to_data(path):
         with open(path, 'rb') as fp:
             data = fp.read()
 
-    data64 = base64.b64encode(data).decode('utf-8')
-    return u'data:%s;base64,%s' % (mime, data64)
+    return data_uri(mime, data)
 
 
 def to_mime_and_metadata(obj):

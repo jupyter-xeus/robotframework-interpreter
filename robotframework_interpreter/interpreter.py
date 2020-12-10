@@ -9,6 +9,7 @@ from typing import List
 
 from robot.api import get_model
 from robot.errors import DataError
+from robot.reporting import ResultWriter
 from robot.running.model import TestSuite
 from robot.running.builder.testsettings import TestDefaults
 from robot.running.builder.parsers import ErrorReporter
@@ -17,7 +18,8 @@ from robot.model.itemlist import ItemList
 
 from .utils import (
     detect_robot_context, line_at_cursor, scored_results,
-    complete_libraries, get_lunr_completions, remove_prefix
+    complete_libraries, get_lunr_completions, remove_prefix,
+    display_log, process_screenshots
 )
 from .selectors import (
     BrokenOpenConnection, clear_selector_highlights, get_autoit_selector_completions, get_selector_completions,
@@ -72,9 +74,35 @@ def init_suite(name: str, source: str = os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
-            stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
-    """Execute a snippet of code, given the current test suite."""
+def generate_report(suite: TestSuite, outputdir: str):
+    process_screenshots(outputdir)
+
+    writer = ResultWriter(os.path.join(outputdir, "output.xml"))
+    writer.write_results(
+        log=os.path.join(outputdir, "log.html"),
+        report=None,
+        rpa=getattr(suite, "rpa", False),
+    )
+
+    with open(os.path.join(outputdir, "log.html"), "rb") as fp:
+        log = fp.read()
+        log = log.replace(b'"reportURL":"report.html"', b'"reportURL":null')
+
+    html = """
+        <button
+          class="jp-mod-styled jp-mod-accept"
+          onClick="{};event.preventDefault();event.stopPropagation();"
+        >
+            <i class="fa fa-file" aria-hidden="true"></i>
+            Log
+        </button>
+        """.format(display_log(log, "log.html"))
+
+    return {"text/html": html}
+
+
+def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
+                  stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
     # Clear selector completion highlights
     for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter"]):
         try:
@@ -109,11 +137,7 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
 
     # Execute suite
     try:
-        if outputdir is None:
-            with TemporaryDirectory() as path:
-                result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
-        else:
-            result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
+        result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
     except TestSuiteError as e:
         # Reset keywords/variables/libraries
         set_items(suite.resource.imports, imports)
@@ -133,12 +157,28 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
         if isinstance(listener, RobotKeywordsIndexerListener):
             listener.import_from_suite_data(suite)
 
+    # Detect RPA
+    suite.rpa = get_rpa_mode(model)
+
+    report = None
+    if suite.tests:
+        report = generate_report(suite, outputdir)
+
     # Remove tests run so far,
     # this is needed so that we don't run them again in the next execution
     clean_items(suite.tests)
 
-    # Detect RPA
-    suite.rpa = get_rpa_mode(model)
+    return result, report
+
+
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
+            stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
+    """Execute a snippet of code, given the current test suite."""
+    if outputdir is None:
+        with TemporaryDirectory() as path:
+            result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, path)
+    else:
+        result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, outputdir)
 
     return result
 

@@ -313,4 +313,34 @@ __ http://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#
         )
     ),
 }
+
 CONTEXT_LIBRARIES["__settings__"].extend(CONTEXT_LIBRARIES["__root__"])
+
+
+SCRIPT_DISPLAY_LOG = """\
+var content = '{content}';
+
+var w = window.open('', '', 'width=900,height=900');
+w.document.body.style = 'margin:0; overflow: hidden;';
+
+var i = w.document.createElement('iframe');
+i.src = 'data:text/html;base64,' + content;
+i.style = (
+  'position:absolute;' +
+  'left: 0px; width: 100%;' +
+  'top: 0px; height: 100%;' +
+  'border-width: 0;'
+);
+w.document.body.append(i);
+
+var a = w.document.createElement('a');
+a.appendChild(w.document.createTextNode('Download'));
+a.href = 'data:text/html;base64,' + content;
+a.download = '{filename}';
+a.style = (
+  'position:fixed;top:0;right:0;' +
+  'color:white;background:black;text-decoration:none;' +
+  'font-weight:bold;padding:7px 14px;border-radius:0 0 0 5px;'
+);
+w.document.body.append(a);
+"""
