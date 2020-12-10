@@ -33,6 +33,61 @@ class TestSuiteError(Exception):
     pass
 
 
+class ProgressUpdater(StringIO):
+    """Wrapper designed to capture robot.api.logger.console and display it.
+    This can be used passing an instance of this to the execute's stdout argument"""
+
+    colors = re.compile(r"\[[0-?]+[^m]+m")
+
+    def __init__(self, display, update_display):
+        self.display = display
+        self.update_display = update_display
+
+        self.progress = {"test": "n/a", "keyword": "n/a", "message": None}
+        self.already_displayed = False
+
+        super(ProgressUpdater, self).__init__()
+
+    def _update(self):
+        status_line = " | ".join(
+            str(s)
+            for s in [
+                self.progress["test"],
+                self.progress["keyword"],
+                self.progress["message"],
+            ]
+            if s
+        )
+
+        mimebundle = {
+            "text/html": f'<pre style="white-space:nowrap;overflow:hidden;padding-left:1ex;'
+                         f'"><i class="fa fa-spinner fa-pulse"></i>{status_line}</pre>'
+        }
+
+        if not self.already_displayed:
+            self.display(mimebundle)
+            self.already_displayed = True
+        else:
+            self.update_display(mimebundle)
+
+    def update(self, data):
+        if "test" in data:
+            self.progress["test"] = data["test"]
+            self.progress["message"] = None
+        elif "keyword" in data:
+            self.progress["keyword"] = data["keyword"]
+            self.progress["message"] = None
+        self._update()
+
+    def clear(self):
+        self.update_display({"text/plain": ""})
+
+    def write(self, s):
+        self.progress["message"] = s.strip()
+        self._update()
+        return super(ProgressUpdater, self).write(s)
+
+
 class ErrorStream():
     def __init__(self):
         self.message = ''
