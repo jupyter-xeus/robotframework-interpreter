@@ -3,7 +3,6 @@
 from io import StringIO
 import os
 import re
-import sys
 from tempfile import TemporaryDirectory
 from typing import List
 
@@ -52,21 +51,14 @@ class ErrorStream():
         raise TestSuiteError(message_copy)
 
 
-class OutStream():
-    def __init__(self):
-        self.message = ''
-
+class NoOpStream():
     def write(self, message, flush=False):
-        self.message = self.message + message
+        # This is a no-op
+        pass
 
     def flush(self):
         # This is a no-op
         pass
-
-    def flush_stdout(self):
-        print(self.message, file=sys.stdout)
-
-        self.message = ''
 
 
 def init_suite(name: str, source: str = os.getcwd()):
@@ -130,8 +122,10 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     strip_duplicate_items(suite.resource.keywords)
 
     # Set default streams
+    # By default stdout is no-op
+    # By default stderr raises an exception when flushing (workaround robotframework which does not raise)
     if stdout is None:
-        stdout = OutStream()
+        stdout = NoOpStream()
     if stderr is None:
         stderr = ErrorStream()
 
@@ -147,11 +141,6 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
         clean_items(suite.tests)
 
         raise e
-
-    # If there were tests, flush stdout
-    n_tests = result.statistics.total.critical.total
-    if n_tests != 0 and isinstance(stdout, OutStream):
-        stdout.flush_stdout()
 
     for listener in listeners:
         if isinstance(listener, RobotKeywordsIndexerListener):
