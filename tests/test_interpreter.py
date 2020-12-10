@@ -54,7 +54,7 @@ def test_execution():
     assert len(suite.resource.keywords) == 1
     assert len(suite.tests) == 0
 
-    result = execute(CELL4, suite)
+    result, _ = execute(CELL4, suite)
 
     assert len(suite.resource.keywords) == 1
     assert len(suite.tests) == 0  # Test cases should be cleared between cell code executions
