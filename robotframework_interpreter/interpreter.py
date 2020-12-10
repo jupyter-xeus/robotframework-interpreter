@@ -72,7 +72,8 @@ def init_suite(name: str, source: str = os.getcwd()):
     return TestSuite(name=name, source=source)
 
 
-def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(), stdout=None, stderr=None, listeners=[], drivers=[]):
+def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
+            stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
     """Execute a snippet of code, given the current test suite."""
     # Clear selector completion highlights
     for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter"]):
@@ -107,18 +108,21 @@ def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults()
         stderr = ErrorStream()
 
     # Execute suite
-    with TemporaryDirectory() as path:
-        try:
-            result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
-        except TestSuiteError as e:
-            # Reset keywords/variables/libraries
-            set_items(suite.resource.imports, imports)
-            set_items(suite.resource.variables, variables)
-            set_items(suite.resource.keywords, keywords)
+    try:
+        if outputdir is None:
+            with TemporaryDirectory() as path:
+                result = suite.run(outputdir=path, stdout=stdout, stderr=stderr, listener=listeners)
+        else:
+            result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
+    except TestSuiteError as e:
+        # Reset keywords/variables/libraries
+        set_items(suite.resource.imports, imports)
+        set_items(suite.resource.variables, variables)
+        set_items(suite.resource.keywords, keywords)
 
-            clean_items(suite.tests)
+        clean_items(suite.tests)
 
-            raise e
+        raise e
 
     # If there were tests, flush stdout
     n_tests = result.statistics.total.critical.total
