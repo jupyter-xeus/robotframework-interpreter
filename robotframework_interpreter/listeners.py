@@ -115,7 +115,10 @@ class ReturnValueListener:
 
     def get_last_value(self):
         if self.return_value is not None and self.return_value != "" and self.return_value != b"":
-            return to_mime_and_metadata(self.return_value)
+            value = to_mime_and_metadata(self.return_value)
+
+            self.return_value = None
+            return value
         return None
 
 
