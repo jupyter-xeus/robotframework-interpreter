@@ -1,10 +1,15 @@
 """Utility functions for creating an interpreter."""
 
+from collections import OrderedDict
+from copy import deepcopy
 from io import StringIO
 import os
 import re
+from functools import partial
 from tempfile import TemporaryDirectory
 from typing import List
+
+from IPython.core.display import display
 
 from robot.api import get_model
 from robot.errors import DataError
@@ -14,6 +19,8 @@ from robot.running.builder.testsettings import TestDefaults
 from robot.running.builder.parsers import ErrorReporter
 from robot.running.builder.transformers import SettingsBuilder, SuiteBuilder
 from robot.model.itemlist import ItemList
+
+from ipywidgets import VBox, HBox, Button, Output, Text
 
 from .utils import (
     detect_robot_context, line_at_cursor, scored_results,
@@ -27,6 +34,87 @@ from .selectors import (
 )
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import RobotKeywordsIndexerListener
+
+
+def normalize_argument(name):
+    if "=" in name:
+        name, default = name.split("=", 1)
+    else:
+        default = None
+
+    return (
+        name,
+        re.sub(r"\W", "_", re.sub(r"^[^\w]*|[^\w]*$", "", name, re.U), re.U),
+        default
+    )
+
+
+def execute_keyword(suite: TestSuite, name, arguments, **values):
+    header = suite.rpa and "Tasks" or "Test Cases"
+    code = f"""\
+
+*** {header} ***
+
+{name}
+    {name}  {'  '.join([values[a[1]] for a in arguments])}
+"""
+
+    # Copy the test suite
+    suite = deepcopy(suite)
+    suite.rpa = True
+
+    with TemporaryDirectory() as path:
+        _, report = _execute_impl(code, suite, outputdir=path, interactive_keywords=False)
+
+    if report is not None:
+        display(report, raw=True)
+
+
+def on_button_execute(execute, controls, out, widgets, *args, **kwargs):
+    values = {key: control.value for key, control in controls.items()}
+
+    with out:
+        description = widgets[0].description
+        widgets[0].description = "Executing..."
+
+        for widget in widgets:
+            widget.disabled = True
+
+        out.clear_output(wait=True)
+
+        try:
+            execute(**values)
+        finally:
+            widgets[0].description = description
+            for widget in widgets:
+                widget.disabled = False
+
+
+def get_interactive_keyword(suite: TestSuite, keyword):
+    """Get an interactive widget for testing a keyword."""
+    name = keyword.name
+    arguments = [normalize_argument(arg) for arg in keyword.args]
+
+    # Make a copy of the suite, the suite the widget operates on must no be
+    # the same as the main one
+    suite_copy = deepcopy(suite)
+
+    execute_key = partial(execute_keyword, suite_copy, name, arguments)
+
+    widgets = []
+    controls = OrderedDict()
+    out = Output()
+
+    for arg in arguments:
+        input_widget = Text(description=arg[1] + "=", value=arg[2])
+        widgets.append(input_widget)
+        controls[arg[1]] = input_widget
+
+    button = Button(description=name)
+    button.on_click(partial(on_button_execute, execute_key, controls, out, widgets))
+    widgets.insert(0, button)
+
+    return VBox((HBox(widgets), out))
 
 
 class TestSuiteError(Exception):
@@ -149,7 +237,7 @@ def generate_report(suite: TestSuite, outputdir: str):
 
 
 def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
-                  stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
+                  stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None, interactive_keywords=True):
     # Clear selector completion highlights
     for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter"]):
         try:
@@ -175,6 +263,11 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     # Strip variables/keyword duplicates
     strip_duplicate_items(suite.resource.variables)
     strip_duplicate_items(suite.resource.keywords)
+
+    # If there is no test, allow the user to interact with defined keywords by providing widgets
+    new_keywords = [item for item in get_items_copy(suite.resource.keywords) if item not in keywords]
+    if not suite.tests and new_keywords and interactive_keywords:
+        return None, [get_interactive_keyword(suite, keyword) for keyword in new_keywords]
 
     # Set default streams
     # By default stdout is no-op
@@ -217,7 +310,10 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
 
 def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
             stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
-    """Execute a snippet of code, given the current test suite."""
+    """
+    Execute a snippet of code, given the current test suite. Returns a tuple containing the result of the
+    suite (if there were tests) and a displayable object containing either the report or interactive widgets.
+    """
     if outputdir is None:
         with TemporaryDirectory() as path:
             result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, path)

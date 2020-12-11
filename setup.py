@@ -20,7 +20,8 @@ setup(
         'robotframework>=3.2,<4',
         'lunr',
         'pillow',
-        'pygments'
+        'pygments',
+        'ipywidgets'
     ],
     extras_require={
         'testing': ['flake8'],
