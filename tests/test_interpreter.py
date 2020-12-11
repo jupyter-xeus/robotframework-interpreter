@@ -1,3 +1,5 @@
+from ipywidgets import DOMWidget
+
 from robotframework_interpreter import init_suite, execute, complete
 
 
@@ -49,7 +51,11 @@ def test_execution():
     assert len(suite.resource.keywords) == 0
     assert len(suite.tests) == 0
 
-    execute(CELL3, suite)
+    result, widgets = execute(CELL3, suite)
+
+    assert result is None
+    assert len(widgets) == 1
+    assert isinstance(widgets[0], DOMWidget)
 
     assert len(suite.resource.keywords) == 1
     assert len(suite.tests) == 0
