@@ -86,14 +86,16 @@ class RobotKeywordsIndexerListener:
 class StatusEventListener:
     ROBOT_LISTENER_API_VERSION = 2
 
-    def __init__(self, callback):
+    def __init__(self, callback=None):
         self.callback = callback
 
     def start_test(self, name, attributes):
-        self.callback({"test": name})
+        if self.callback is not None:
+            self.callback({"test": name})
 
     def start_keyword(self, name, attributes):
-        self.callback({"keyword": name})
+        if self.callback is not None:
+            self.callback({"keyword": name})
 
 
 class ReturnValueListener:

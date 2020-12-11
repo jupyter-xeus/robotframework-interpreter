@@ -1,6 +1,6 @@
 from .listeners import (   # noqa
     RobotKeywordsIndexerListener, SeleniumConnectionsListener, RpaBrowserConnectionsListener,
     JupyterConnectionsListener, AppiumConnectionsListener, WhiteLibraryListener,
-    ReturnValueListener
+    ReturnValueListener, StatusEventListener
 )
-from .interpreter import init_suite, execute, complete, shutdown_drivers  # noqa
+from .interpreter import init_suite, execute, complete, shutdown_drivers, ProgressUpdater  # noqa
