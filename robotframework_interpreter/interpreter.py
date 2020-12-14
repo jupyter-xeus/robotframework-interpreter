@@ -25,7 +25,7 @@ from ipywidgets import VBox, HBox, Button, Output, Text
 from .utils import (
     detect_robot_context, line_at_cursor, scored_results,
     complete_libraries, get_lunr_completions, remove_prefix,
-    display_log, process_screenshots
+    display_log, process_screenshots, lunr_query, get_keyword_doc
 )
 from .selectors import (
     BrokenOpenConnection, clear_selector_highlights, get_autoit_selector_completions, get_selector_completions,
@@ -395,6 +395,39 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
         "matches": matches,
         "cursor_end": cursor_pos,
         "cursor_start": cursor_pos - len(needle)
+    }
+
+
+def inspect(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, detail_level=0):
+    cursor_pos = len(code) if cursor_pos is None else cursor_pos
+    line, offset = line_at_cursor(code, cursor_pos)
+    line_cursor = cursor_pos - offset
+    left_needle = re.split(r"\s{2,}|\t| \| ", line[:line_cursor])[-1]
+    right_needle = re.split(r"\s{2,}|\t| \| ", line[line_cursor:])[0]
+    needle = left_needle.lstrip().lower() + right_needle.rstrip().lower()
+
+    results = []
+    data = {}
+    found = False
+
+    if needle and lunr_query(needle):
+        query = lunr_query(needle)
+        results = keywords_listener.index.search(query)
+        results += keywords_listener.index.search(query.strip("*"))
+
+    for result in results:
+        keyword = keywords_listener.keywords[result["ref"]]
+
+        if needle not in [keyword.name.lower(), result["ref"].lower()]:
+            continue
+
+        data = get_keyword_doc(keyword)
+        found = True
+        break
+
+    return {
+        "data": data,
+        "found": found,
     }
 
 

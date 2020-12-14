@@ -14,6 +14,7 @@ from copy import deepcopy
 from operator import itemgetter
 
 from robot.libraries import STDLIBS
+from robot.libdocpkg.htmlwriter import DocToHtml
 
 from PIL import Image
 
@@ -26,7 +27,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 import pygments
 
-from .constants import SCRIPT_DISPLAY_LOG
+from .constants import SCRIPT_DISPLAY_LOG, NAME_REGEXP
 
 
 def data_uri(mimetype, data):
@@ -273,3 +274,23 @@ def get_lunr_completions(needle: str, index, keywords, context):
         else:
             matches.append(readable_keyword(ref))
     return matches
+
+
+def get_keyword_doc(keyword):
+    title = keyword.name.strip("*").strip()
+    title_html = f"<strong>{title}</strong>"
+    if keyword.args:
+        title += " " + ", ".join(keyword.args)
+        title_html += " " + ", ".join(keyword.args)
+
+    body = ""
+    if keyword.doc:
+        body = "\n\n" + keyword.doc
+
+    return {
+        "text/plain": title + "\n\n" + body,
+        "text/html": f"<p>{title_html}</p>" +
+        NAME_REGEXP.sub(
+            lambda m: f"<code>{m.group(1)}</code>", DocToHtml(keyword.doc_format)(body)
+        ),
+    }
