@@ -3,4 +3,4 @@ from .listeners import (   # noqa
     JupyterConnectionsListener, AppiumConnectionsListener, WhiteLibraryListener,
     ReturnValueListener, StatusEventListener
 )
-from .interpreter import init_suite, execute, complete, shutdown_drivers, ProgressUpdater  # noqa
+from .interpreter import init_suite, execute, complete, inspect, shutdown_drivers, ProgressUpdater  # noqa

@@ -25,6 +25,8 @@ BUILTIN_VARIABLES = [
     "${PREV_TEST_MESSAGE}",
 ]
 
+NAME_REGEXP = re.compile("`(.+?)`")
+
 CONTEXT_LIBRARIES = {
     "__root__": list(
         map(
