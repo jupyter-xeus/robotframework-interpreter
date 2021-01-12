@@ -35,6 +35,9 @@ from .selectors import (
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import RobotKeywordsIndexerListener
 
+from robot.running.model import UserKeyword
+UserKeyword.source = property(lambda self: self.actual_source)
+
 
 def normalize_argument(name):
     if "=" in name:
@@ -264,8 +267,16 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     strip_duplicate_items(suite.resource.variables)
     strip_duplicate_items(suite.resource.keywords)
 
+    new_imports = [item for item in get_items_copy(suite.resource.imports) if item not in imports]
+    for new_import in new_imports:
+        new_import.source = suite.source
+    new_variables = [item for item in get_items_copy(suite.resource.variables) if item not in variables]
+    for new_variable in new_variables:
+        new_variable.source = suite.source
     # If there is no test, allow the user to interact with defined keywords by providing widgets
     new_keywords = [item for item in get_items_copy(suite.resource.keywords) if item not in keywords]
+    for new_keyword in new_keywords:
+        new_keyword.actual_source = suite.source
     if not suite.tests and new_keywords and interactive_keywords:
         return None, [get_interactive_keyword(suite, keyword) for keyword in new_keywords]
 
