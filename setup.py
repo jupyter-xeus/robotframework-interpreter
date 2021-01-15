@@ -17,7 +17,7 @@ setup(
     include_package_data=True,
     python_requires='>=3.6',
     install_requires=[
-        'robotframework>=3.2,<4',
+        'robotframework>=3.2,<5',
         'lunr',
         'pillow',
         'pygments',
