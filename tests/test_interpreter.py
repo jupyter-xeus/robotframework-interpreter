@@ -1,6 +1,7 @@
 from ipywidgets import DOMWidget
 
 from robotframework_interpreter import init_suite, execute, complete
+from robotframework_interpreter.robot_version import ROBOT_MAJOR_VERSION
 
 
 CELL1 = """\
@@ -64,8 +65,13 @@ def test_execution():
 
     assert len(suite.resource.keywords) == 1
     assert len(suite.tests) == 0  # Test cases should be cleared between cell code executions
-    assert result.statistics.total.critical.failed == 0
-    assert result.statistics.total.critical.passed == 1
+
+    if ROBOT_MAJOR_VERSION == 4:
+        assert result.statistics.total.failed == 0
+        assert result.statistics.total.passed == 1
+    else:
+        assert result.statistics.total.critical.failed == 0
+        assert result.statistics.total.critical.passed == 1
 
 
 def test_keywords_completion():

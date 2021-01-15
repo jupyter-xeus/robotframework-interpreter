@@ -16,7 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python_version: [3.6, 3.7, 3.8]
+        python_version: [3.8]
+        robot_version: [3, 4]
 
     steps:
     - uses: actions/checkout@v2
@@ -29,7 +30,17 @@ jobs:
 
     - name: Create the conda environment
       shell: bash -l {0}
-      run: mamba install -q python=${{ matrix.python_version }} pip robotframework>=3.2 lunr flake8 pytest
+      run: mamba install -q python=${{ matrix.python_version }} pip lunr flake8 pytest
+
+    - name: Install robotframework 3
+      if: ${{ matrix.robot_version }} == 3
+      shell: bash -l {0}
+      run: mamba install -q robotframework=3
+
+    - name: Install robotframework 4
+      if: ${{ matrix.robot_version }} == 4
+      shell: bash -l {0}
+      run: pip install robotframework==4.0b1
 
     - name: Install library
       shell: bash -l {0}

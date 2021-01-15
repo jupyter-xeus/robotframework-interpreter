@@ -13,8 +13,14 @@ from difflib import SequenceMatcher
 from copy import deepcopy
 from operator import itemgetter
 
+from .robot_version import ROBOT_MAJOR_VERSION
+
 from robot.libraries import STDLIBS
-from robot.libdocpkg.htmlwriter import DocToHtml
+
+if ROBOT_MAJOR_VERSION == 4:
+    from robot.libdocpkg.htmlutils import DocToHtml
+else:
+    from robot.libdocpkg.htmlwriter import DocToHtml
 
 from PIL import Image
 
