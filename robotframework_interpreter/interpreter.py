@@ -242,7 +242,7 @@ def generate_report(suite: TestSuite, outputdir: str):
 def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
                   stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None, interactive_keywords=True):
     # Clear selector completion highlights
-    for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter"]):
+    for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter"]):
         try:
             clear_selector_highlights(driver)
         except BrokenOpenConnection:
@@ -382,7 +382,7 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
     # Try to complete a CSS selector
     elif is_selector(needle):
         matches = []
-        for driver in yield_current_connection(drivers, ["RPA.Browser", "selenium", "jupyter", "appium"]):
+        for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter", "appium"]):
             matches = [get_selector_completions(needle.rstrip(), driver)[0]]
     # Try to complete an AutoIt selector
     elif is_autoit_selector(needle):
