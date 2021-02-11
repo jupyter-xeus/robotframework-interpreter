@@ -6,7 +6,7 @@ __AUTHOR__ = 'QuantStack dev team'
 
 setup(
     name='robotframework-interpreter',
-    version='0.6.2',
+    version='0.6.3',
     description='Utility functions for building a Robot Framework interpreter.',
     author=__AUTHOR__,
     maintainer=__AUTHOR__,
