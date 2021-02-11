@@ -116,12 +116,19 @@ class ReturnValueListener:
         self.return_value = None
 
     def get_last_value(self):
-        if self.return_value is not None and self.return_value != "" and self.return_value != b"":
-            value = to_mime_and_metadata(self.return_value)
+        if not self.has_value(self.return_value):
+            return None
 
-            self.return_value = None
-            return value
-        return None
+        value = to_mime_and_metadata(self.return_value)
+        self.return_value = None
+        return value
+
+    @staticmethod
+    def has_value(value):
+        try:
+            return value is not None and value != "" and value != b""
+        except Exception:
+            return True
 
 
 def clear_drivers(drivers, type_):
