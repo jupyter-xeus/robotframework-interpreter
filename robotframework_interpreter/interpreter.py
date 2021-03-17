@@ -36,7 +36,17 @@ from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import RobotKeywordsIndexerListener
 
 from robot.running.model import UserKeyword
-UserKeyword.source = property(lambda self: self.actual_source)
+
+
+# Monkey patch user-keyword source for JupyterLab debugger
+def get_source(self):
+    if hasattr(self, 'actual_source'):
+        return self.actual_source
+
+    return self.parent.source if self.parent is not None else None
+
+
+UserKeyword.source = property(get_source)
 
 
 def normalize_argument(name):
