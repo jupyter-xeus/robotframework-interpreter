@@ -8,6 +8,10 @@ on:
     branches:
     - master
 
+defaults:
+  run:
+    shell: bash -l {0}
+
 jobs:
   run:
     runs-on: ${{ matrix.os }}
@@ -29,29 +33,16 @@ jobs:
         channels: conda-forge
 
     - name: Create the conda environment
-      shell: bash -l {0}
       run: mamba install -q python=${{ matrix.python_version }} pip lunr flake8 pytest
 
-    - name: Install robotframework 3
-      if: ${{ matrix.robot_version }} == 3
-      shell: bash -l {0}
-      run: mamba install -q robotframework=3
-
-    - name: Install robotframework 4
-      if: ${{ matrix.robot_version }} == 4
-      shell: bash -l {0}
-      run: pip install robotframework==4.0b1
+    - name: Install robotframework
+      run: mamba install -q robotframework=${{ matrix.robot_version }}
 
     - name: Install library
-      shell: bash -l {0}
       run: pip install .
 
     - name: Flake8
-      shell: bash -l {0}
-      run: |
-        python -m flake8 robotframework_interpreter setup.py --ignore=E501,W504
+      run: python -m flake8 robotframework_interpreter setup.py --ignore=E501,W504
 
     - name: Tests
-      shell: bash -l {0}
-      run: |
-        pytest tests
+      run: pytest tests
