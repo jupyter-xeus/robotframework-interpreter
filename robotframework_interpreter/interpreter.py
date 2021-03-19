@@ -250,13 +250,16 @@ def generate_report(suite: TestSuite, outputdir: str):
 
 
 def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
-                  stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None, interactive_keywords=True):
+                  stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None, interactive_keywords=True, logger=None):
     # Clear selector completion highlights
     for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter"]):
         try:
             clear_selector_highlights(driver)
         except BrokenOpenConnection:
             close_current_connection(drivers, driver)
+
+    if logger is not None:
+        logger.debug("Compiling code: \n%s", code)
 
     # Copy keywords/variables/libraries in case of failure
     imports = get_items_copy(suite.resource.imports)
@@ -298,6 +301,9 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     if stderr is None:
         stderr = ErrorStream()
 
+    if logger is not None:
+        logger.debug("Executing code")
+
     # Execute suite
     try:
         result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
@@ -308,6 +314,9 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
         set_items(suite.resource.keywords, keywords)
 
         clean_items(suite.tests)
+
+        if logger is not None:
+            logger.debug("Execution error: %s", e)
 
         raise e
 
@@ -330,27 +339,30 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
 
 
 def execute(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
-            stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None):
+            stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None, logger=None):
     """
     Execute a snippet of code, given the current test suite. Returns a tuple containing the result of the
     suite (if there were tests) and a displayable object containing either the report or interactive widgets.
     """
     if outputdir is None:
         with TemporaryDirectory() as path:
-            result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, path)
+            result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, path, logger=logger)
     else:
-        result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, outputdir)
+        result = _execute_impl(code, suite, defaults, stdout, stderr, listeners, drivers, outputdir, logger=logger)
 
     return result
 
 
-def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, extra_libraries: List[str] = [], drivers=[]):
+def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, extra_libraries: List[str] = [], drivers=[], logger=None):
     """Complete a snippet of code, given the current test suite."""
     context = detect_robot_context(code, cursor_pos)
     cursor_pos = cursor_pos is None and len(code) or cursor_pos
     line, offset = line_at_cursor(code, cursor_pos)
     line_cursor = cursor_pos - offset
     needle = re.split(r"\s{2,}|\t| \| ", line[:line_cursor])[-1].lstrip()
+
+    if logger is not None:
+        logger.debug("Completing text: %s", needle)
 
     library_completion = context == "__settings__" and any(
         [
@@ -365,6 +377,9 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
 
     # Try to complete a variable
     if needle and needle[0] in "$@&%":
+        if logger is not None:
+            logger.debug("Context: Variable")
+
         potential_vars = list(set(
             [var.name for var in suite.resource.variables] +
             VARIABLE_REGEXP.findall(code) +
@@ -382,6 +397,9 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
             needle += "}"
     # Try to complete a library name
     elif library_completion:
+        if logger is not None:
+            logger.debug("Context: Library name")
+
         needle = needle.lower()
         needle = remove_prefix(needle, 'library ')
         needle = remove_prefix(needle, 'import library ')
@@ -391,26 +409,45 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
         matches = complete_libraries(needle, extra_libraries)
     # Try to complete a CSS selector
     elif is_selector(needle):
+        if logger is not None:
+            logger.debug("Context: Selenium or Appium selector")
+            logger.debug("Current WebDrivers: %s", drivers)
+
         matches = []
         for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter", "appium"]):
             matches = [get_selector_completions(needle.rstrip(), driver)[0]]
     # Try to complete an AutoIt selector
     elif is_autoit_selector(needle):
+        if logger is not None:
+            logger.debug("Context: AutoIt selector")
+
         matches = [get_autoit_selector_completions(needle)[0]]
     # Try to complete a white selector
     elif is_white_selector(needle):
+        if logger is not None:
+            logger.debug("Context: WhiteLibrary selector")
+
         matches = [get_white_selector_completions(needle)[0]]
     # Try to complete a Windows selector
     elif is_win32_selector(needle):
+        if logger is not None:
+            logger.debug("Context: Win32 selector")
+
         matches = [get_win32_selector_completions(needle)[0]]
     # Try to complete a keyword
     elif keywords_listener is not None:
+        if logger is not None:
+            logger.debug("Context: Keywords or Built-ins")
+
         matches = get_lunr_completions(
             needle,
             keywords_listener.index,
             keywords_listener.keywords,
             context
         )
+
+    if logger is not None:
+        logger.debug("Available completions: %s", matches)
 
     return {
         "matches": matches,
@@ -419,13 +456,16 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
     }
 
 
-def inspect(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, detail_level=0):
+def inspect(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: RobotKeywordsIndexerListener = None, detail_level=0, logger=None):
     cursor_pos = len(code) if cursor_pos is None else cursor_pos
     line, offset = line_at_cursor(code, cursor_pos)
     line_cursor = cursor_pos - offset
     left_needle = re.split(r"\s{2,}|\t| \| ", line[:line_cursor])[-1]
     right_needle = re.split(r"\s{2,}|\t| \| ", line[line_cursor:])[0]
     needle = left_needle.lstrip().lower() + right_needle.rstrip().lower()
+
+    if logger is not None:
+        logger.debug("Inspecting text: %s", needle)
 
     results = []
     data = {}
@@ -445,6 +485,9 @@ def inspect(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Rob
         data = get_keyword_doc(keyword)
         found = True
         break
+
+    if logger is not None:
+        logger.debug("Inspection data: %s", data)
 
     return {
         "data": data,
