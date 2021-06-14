@@ -189,24 +189,6 @@ class ProgressUpdater(StringIO):
         return super(ProgressUpdater, self).write(s)
 
 
-class ErrorStream():
-    def __init__(self):
-        self.message = ''
-
-    def write(self, message, flush=False):
-        self.message = self.message + message
-
-        if flush:
-            self.flush()
-
-    def flush(self):
-        message_copy = str(self.message)
-
-        self.message = ''
-
-        raise TestSuiteError(message_copy)
-
-
 class NoOpStream():
     def write(self, message, flush=False):
         # This is a no-op
@@ -295,11 +277,8 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
 
     # Set default streams
     # By default stdout is no-op
-    # By default stderr raises an exception when flushing (workaround robotframework which does not raise)
     if stdout is None:
         stdout = NoOpStream()
-    if stderr is None:
-        stderr = ErrorStream()
 
     if logger is not None:
         logger.debug("Executing code")
