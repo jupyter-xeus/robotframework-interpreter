@@ -19,6 +19,8 @@ from robot.running.builder.testsettings import TestDefaults
 from robot.running.builder.parsers import ErrorReporter
 from robot.running.builder.transformers import SettingsBuilder, SuiteBuilder
 from robot.model.itemlist import ItemList
+from robot.output import LOGGER
+from robot.utils import get_error_details
 
 from ipywidgets import VBox, HBox, Button, Output, Text
 
@@ -233,6 +235,10 @@ def generate_report(suite: TestSuite, outputdir: str):
 
 def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefaults(),
                   stdout=None, stderr=None, listeners=[], drivers=[], outputdir=None, interactive_keywords=True, logger=None):
+    # This will help raise runtime exceptions
+    traceback = []
+    LOGGER.register_error_listener(lambda: traceback.extend(get_error_details()))
+
     # Clear selector completion highlights
     for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter"]):
         try:
@@ -284,9 +290,9 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
         logger.debug("Executing code")
 
     # Execute suite
-    try:
-        result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
-    except TestSuiteError as e:
+    result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
+
+    if len(traceback) != 0:
         # Reset keywords/variables/libraries
         set_items(suite.resource.imports, imports)
         set_items(suite.resource.variables, variables)
@@ -294,10 +300,12 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
 
         clean_items(suite.tests)
 
-        if logger is not None:
-            logger.debug("Execution error: %s", e)
+        error_msg = '\n'.join(traceback)
 
-        raise e
+        if logger is not None:
+            logger.debug("Execution error: %s", error_msg)
+
+        raise TestSuiteError(error_msg)
 
     for listener in listeners:
         if isinstance(listener, RobotKeywordsIndexerListener):
