@@ -8,7 +8,6 @@ import re
 from functools import partial
 from tempfile import TemporaryDirectory
 from typing import List
-from sys import stderr as sys_stderr
 
 from IPython.core.display import display
 
@@ -303,12 +302,10 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
 
         error_msg = '\n'.join(traceback)
 
-        print('\n'.join(traceback), file=sys_stderr)
-
         if logger is not None:
             logger.debug("Execution error: %s", error_msg)
 
-        return None, []
+        raise TestSuiteError(error_msg)
 
     for listener in listeners:
         if isinstance(listener, RobotKeywordsIndexerListener):
@@ -324,11 +321,6 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     # Remove tests run so far,
     # this is needed so that we don't run them again in the next execution
     clean_items(suite.tests)
-
-    # Display errors if there was some
-    for test in result.suite.tests:
-        if (hasattr(test, 'failed') and test.failed) or (hasattr(test, 'passed') and not test.passed):
-            print(f"Task '{test.name}' failed with message: {test.message}", file=sys_stderr)
 
     return result, report
 
