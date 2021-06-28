@@ -19,7 +19,6 @@ setup(
     install_requires=[
         'robotframework>=3.2,<5',
         'lunr',
-        'Pillow',
         'pygments',
         'ipywidgets'
     ],
