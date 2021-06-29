@@ -1,5 +1,5 @@
 from .listeners import (   # noqa
-    RobotKeywordsIndexerListener, SeleniumConnectionsListener, RpaBrowserConnectionsListener,
+    RobotKeywordsIndexerListener, SeleniumConnectionsListener,
     JupyterConnectionsListener, AppiumConnectionsListener, WhiteLibraryListener,
     ReturnValueListener, StatusEventListener
 )

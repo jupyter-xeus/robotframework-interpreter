@@ -35,7 +35,7 @@ from .selectors import (
     is_selector, is_white_selector, is_win32_selector, close_current_connection, yield_current_connection
 )
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
-from .listeners import RobotKeywordsIndexerListener
+from .listeners import RobotKeywordsIndexerListener, SeleniumConnectionsListener
 
 from robot.running.model import UserKeyword
 
@@ -240,7 +240,7 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     LOGGER.register_error_listener(lambda: traceback.extend(get_error_details()))
 
     # Clear selector completion highlights
-    for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter"]):
+    for driver in yield_current_connection(drivers, SeleniumConnectionsListener.NAMES + ["jupyter"]):
         try:
             clear_selector_highlights(driver)
         except BrokenOpenConnection:
@@ -401,7 +401,7 @@ def complete(code: str, cursor_pos: int, suite: TestSuite, keywords_listener: Ro
             logger.debug("Current WebDrivers: %s", drivers)
 
         matches = []
-        for driver in yield_current_connection(drivers, ["RPA.Browser.Selenium", "RPA.Browser", "selenium", "jupyter", "appium"]):
+        for driver in yield_current_connection(drivers, SeleniumConnectionsListener.NAMES + ["jupyter", "appium"]):
             matches = [get_selector_completions(needle.rstrip(), driver)[0]]
     # Try to complete an AutoIt selector
     elif is_autoit_selector(needle):
