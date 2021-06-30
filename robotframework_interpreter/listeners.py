@@ -1,4 +1,8 @@
 import inspect
+import json
+import logging
+import os
+import urllib.request
 
 from robot.errors import DataError
 from robot.libdocpkg import LibraryDocumentation
@@ -60,9 +64,7 @@ class RobotKeywordsIndexerListener:
     def _resource_import(self, keywords):
         for keyword in keywords:
             keyword.doc_format = "REST"
-            self.builder.add(
-                {"name": keyword.name, "dottedname": keyword.name}
-            )
+            self.builder.add({"name": keyword.name, "dottedname": keyword.name})
             self.keywords[keyword.name] = keyword
         if len(self.keywords):
             self.index = self.builder.build()
@@ -177,55 +179,68 @@ def set_webdrivers(drivers, cache, type_):
 class SeleniumConnectionsListener:
     ROBOT_LISTENER_API_VERSION = 2
 
-    def __init__(self, drivers: list):
-        self.drivers = drivers
-
-    def end_suite(self, name, attributes):
-        try:
-            builtin = BuiltIn()
-            try:
-                instance = builtin.get_library_instance("SeleniumLibrary")
-            except RuntimeError:
-                instance = builtin.get_library_instance("Selenium2Library")
-            clear_drivers(self.drivers, "selenium")
-            self.drivers.extend(get_webdrivers(instance._drivers, "selenium"))
-        except RuntimeError:
-            pass
-
-    def start_suite(self, name, attributes):
-        try:
-            builtin = BuiltIn()
-            try:
-                instance = builtin.get_library_instance("SeleniumLibrary")
-            except RuntimeError:
-                instance = builtin.get_library_instance("Selenium2Library")
-            set_webdrivers(self.drivers, instance._drivers, "selenium")
-        except RuntimeError:
-            pass
-
-
-class RpaBrowserConnectionsListener:
-    ROBOT_LISTENER_API_VERSION = 2
+    NAMES = [
+        "SeleniumLibrary",
+        "Selenium2Library",
+        "RPA.Browser.Selenium",
+        "RPA.Browser",
+    ]
 
     def __init__(self, drivers: list):
         self.drivers = drivers
 
     def end_suite(self, name, attributes):
-        for library in ("RPA.Browser.Selenium", "RPA.Browser"):
+        before = [driver["instance"] for driver in self.drivers]
+
+        for name in self.NAMES:
             try:
-                instance = BuiltIn().get_library_instance(library)
-                clear_drivers(self.drivers, library)
-                self.drivers.extend(get_webdrivers(instance._drivers, library))
+                instance = BuiltIn().get_library_instance(name)
+                clear_drivers(self.drivers, name)
+                drivers = get_webdrivers(instance._drivers, name)
+                self.drivers.extend(drivers)
             except RuntimeError:
                 pass
 
+        added = [
+            driver["instance"]
+            for driver in self.drivers
+            if driver["instance"] not in before
+        ]
+
+        try:
+            self._register_webdrivers(added)
+        except Exception as err:
+            logging.debug("Failed to register webdrivers: %s", err)
+
     def start_suite(self, name, attributes):
-        for library in ("RPA.Browser.Selenium", "RPA.Browser"):
+        for name in self.NAMES:
             try:
-                instance = BuiltIn().get_library_instance(library)
-                set_webdrivers(self.drivers, instance._drivers, library)
+                instance = BuiltIn().get_library_instance(name)
+                set_webdrivers(self.drivers, instance._drivers, name)
             except RuntimeError:
                 pass
+
+    def _register_webdrivers(self, drivers):
+        remote_url = os.getenv("BROWSERS_REMOTE_URL")
+        if not remote_url:
+            return
+
+        for driver in drivers:
+            info = {
+                "type": "selenium",
+                "executor_url": driver.command_executor._url,
+                "session_id": driver.session_id,
+            }
+
+            logging.debug("Registering remote webdriver: %s", info)
+
+            payload = json.dumps(info).encode("utf-8")
+            req = urllib.request.Request(remote_url)
+            req.add_header("Content-Type", "application/json; charset=utf-8")
+            req.add_header("Content-Length", str(len(payload)))
+
+            with urllib.request.urlopen(req, payload):
+                pass  # Ignore response
 
 
 class JupyterConnectionsListener:
