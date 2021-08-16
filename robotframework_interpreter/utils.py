@@ -43,7 +43,7 @@ def data_uri(mimetype, data):
 def process_screenshots(outputdir: str):
     cwd = os.getcwd()
 
-    with open(os.path.join(outputdir, "output.xml")) as fp:
+    with open(os.path.join(outputdir, "output.xml"), encoding="utf-8") as fp:
         xml = fp.read()
 
     for src in re.findall('img src="([^"]+)', xml):
@@ -83,7 +83,7 @@ def process_screenshots(outputdir: str):
         )
         xml = xml.replace('img src="{}"'.format(src), 'img src="{}"'.format(uri))
 
-    with open(os.path.join(outputdir, "output.xml"), "w") as fp:
+    with open(os.path.join(outputdir, "output.xml"), "w", encoding="utf-8") as fp:
         fp.write(xml)
 
 
