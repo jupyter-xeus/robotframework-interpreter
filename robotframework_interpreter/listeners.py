@@ -243,6 +243,44 @@ class SeleniumConnectionsListener:
                 pass  # Ignore response
 
 
+class PlaywrightConnectionsListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    NAMES = [
+        "Browser",
+        "RPA.Browser.Playwright",
+    ]
+
+    def __init__(self, drivers: list):
+        self.drivers = drivers
+
+    def end_suite(self, name, attributes):
+        for name in self.NAMES:
+            try:
+                library = BuiltIn().get_library_instance(name)
+                clear_drivers(self.drivers, name)
+                driver = {
+                    "instance": library.playwright,
+                    "aliases": [],
+                    "current": True,
+                    "type": name,
+                }
+                self.drivers.append(driver)
+            except RuntimeError:
+                pass
+
+    def start_suite(self, name, attributes):
+        for name in self.NAMES:
+            try:
+                library = BuiltIn().get_library_instance(name)
+                for driver in self.drivers:
+                    if driver["type"] == name:
+                        library.playwright = driver["instance"]
+                        break
+            except RuntimeError:
+                pass
+
+
 class JupyterConnectionsListener:
     ROBOT_LISTENER_API_VERSION = 2
 
