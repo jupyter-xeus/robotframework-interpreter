@@ -35,7 +35,10 @@ from .selectors import (
     is_selector, is_white_selector, is_win32_selector, close_current_connection, yield_current_connection
 )
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
-from .listeners import RobotKeywordsIndexerListener, SeleniumConnectionsListener
+from .listeners import (
+    RobotKeywordsIndexerListener, SeleniumConnectionsListener,
+    StatusEventListener
+)
 
 from robot.running.model import UserKeyword
 
@@ -64,7 +67,7 @@ def normalize_argument(name):
     )
 
 
-def execute_keyword(suite: TestSuite, name, arguments, **values):
+def execute_keyword(suite: TestSuite, name, arguments, execute_kwargs, **values):
     header = suite.rpa and "Tasks" or "Test Cases"
     code = f"""\
 
@@ -79,7 +82,10 @@ def execute_keyword(suite: TestSuite, name, arguments, **values):
     suite.rpa = True
 
     with TemporaryDirectory() as path:
-        _, report = _execute_impl(code, suite, outputdir=path, interactive_keywords=False)
+        _, report = _execute_impl(
+            code, suite, outputdir=path, interactive_keywords=False,
+            **execute_kwargs
+        )
 
     if report is not None:
         display(report, raw=True)
@@ -105,7 +111,7 @@ def on_button_execute(execute, controls, out, widgets, *args, **kwargs):
                 widget.disabled = False
 
 
-def get_interactive_keyword(suite: TestSuite, keyword):
+def get_interactive_keyword(suite: TestSuite, keyword, **execute_kwargs):
     """Get an interactive widget for testing a keyword."""
     name = keyword.name
     arguments = [normalize_argument(arg) for arg in keyword.args]
@@ -114,7 +120,9 @@ def get_interactive_keyword(suite: TestSuite, keyword):
     # the same as the main one
     suite_copy = deepcopy(suite)
 
-    execute_key = partial(execute_keyword, suite_copy, name, arguments)
+    execute_key = partial(
+        execute_keyword, suite_copy, name, arguments, execute_kwargs
+    )
 
     widgets = []
     controls = OrderedDict()
@@ -279,7 +287,19 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     for new_keyword in new_keywords:
         new_keyword.actual_source = suite.source
     if not suite.tests and new_keywords and interactive_keywords:
-        return None, [get_interactive_keyword(suite, keyword) for keyword in new_keywords]
+        return None, [
+            get_interactive_keyword(
+                suite, keyword,
+                # stdout=stdout, stderr=stderr,
+                listeners=[
+                    listener
+                    for listener in listeners
+                    if not isinstance(listener, StatusEventListener)
+                ], drivers=drivers,
+                logger=logger
+            )
+            for keyword in new_keywords
+        ]
 
     # Set default streams
     # By default stdout is no-op
