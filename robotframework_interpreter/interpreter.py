@@ -36,8 +36,8 @@ from .selectors import (
 )
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import (
-    RobotKeywordsIndexerListener, SeleniumConnectionsListener,
-    StatusEventListener
+    RobotKeywordsIndexerListener,
+    SeleniumConnectionsListener, StatusEventListener
 )
 
 from robot.running.model import UserKeyword
@@ -310,7 +310,11 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
         logger.debug("Executing code")
 
     # Execute suite
-    result = suite.run(outputdir=outputdir, stdout=stdout, stderr=stderr, listener=listeners)
+    result = suite.run(
+        outputdir=outputdir,
+        stdout=stdout, stderr=stderr,
+        listener=listeners
+    )
 
     if len(traceback) != 0:
         # Reset keywords/variables/libraries
