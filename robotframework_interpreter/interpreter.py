@@ -36,7 +36,7 @@ from .selectors import (
 )
 from .constants import VARIABLE_REGEXP, BUILTIN_VARIABLES
 from .listeners import (
-    RobotKeywordsIndexerListener,
+    GlobalVarsListener, RobotKeywordsIndexerListener,
     SeleniumConnectionsListener, StatusEventListener
 )
 
@@ -275,6 +275,11 @@ def _execute_impl(code: str, suite: TestSuite, defaults: TestDefaults = TestDefa
     # Strip variables/keyword duplicates
     strip_duplicate_items(suite.resource.variables)
     strip_duplicate_items(suite.resource.keywords)
+
+    for listener in listeners:
+        # Notify suite variables to the listener
+        if isinstance(listener, GlobalVarsListener):
+            listener.suite_vars = [var.name for var in suite.resource.variables]
 
     new_imports = [item for item in get_items_copy(suite.resource.imports) if item not in imports]
     for new_import in new_imports:

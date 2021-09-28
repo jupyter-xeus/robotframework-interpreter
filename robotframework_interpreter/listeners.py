@@ -18,22 +18,26 @@ class GlobalVarsListener:
     variables = {}
 
     black_list = [
-        '${/}', '${:}', '${\n}', '${DEBUG_FILE}',
-        '${EXECDIR}', '${False}', '${LOG_FILE}',
-        '${LOG_LEVEL}', '${None}', '${null}',
-        '${OUTPUT_DIR}', '${OUTPUT_FILE}',
-        '${PREV_TEST_MESSAGE}', '${PREV_TEST_NAME}',
-        '${PREV_TEST_STATUS}', '${REPORT_FILE}',
-        '${SPACE}', '${SUITE_DOCUMENTATION}',
-        '${SUITE_MESSAGE}', '${SUITE_NAME}',
-        '${SUITE_SOURCE}', '${SUITE_STATUS}',
-        '${TEMPDIR}', '${True}',
-        '&{SUITE_METADATA}'
+        r'${/}', r'${:}', r'${\n}', r'${DEBUG_FILE}',
+        r'${EXECDIR}', r'${False}', r'${LOG_FILE}',
+        r'${LOG_LEVEL}', r'${None}', r'${null}',
+        r'${OUTPUT_DIR}', r'${OUTPUT_FILE}',
+        r'${PREV_TEST_MESSAGE}', r'${PREV_TEST_NAME}',
+        r'${PREV_TEST_STATUS}', r'${REPORT_FILE}',
+        r'${SPACE}', r'${SUITE_DOCUMENTATION}',
+        r'${SUITE_MESSAGE}', r'${SUITE_NAME}',
+        r'${SUITE_SOURCE}', r'${SUITE_STATUS}',
+        r'${TEMPDIR}', r'${True}',
+        r'&{SUITE_METADATA}'
     ]
+
+    def __init__(self):
+        self.suite_vars = []
 
     def start_suite(self, name, attributes):
         for name, value in GlobalVarsListener.variables.items():
-            if name not in GlobalVarsListener.black_list:
+            if (name not in GlobalVarsListener.black_list
+                    and name not in self.suite_vars):
                 BuiltIn().set_global_variable(name, value)
 
     def end_suite(self, name, attributes):
