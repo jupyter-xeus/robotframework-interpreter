@@ -12,6 +12,34 @@ from .utils import lunr_builder, to_mime_and_metadata
 from .constants import CONTEXT_LIBRARIES
 
 
+class GlobalVarsListener:
+    ROBOT_LISTENER_API_VERSION = 2
+
+    variables = {}
+
+    black_list = [
+        '${/}', '${:}', '${\n}', '${DEBUG_FILE}',
+        '${EXECDIR}', '${False}', '${LOG_FILE}',
+        '${LOG_LEVEL}', '${None}', '${null}',
+        '${OUTPUT_DIR}', '${OUTPUT_FILE}',
+        '${PREV_TEST_MESSAGE}', '${PREV_TEST_NAME}',
+        '${PREV_TEST_STATUS}', '${REPORT_FILE}',
+        '${SPACE}', '${SUITE_DOCUMENTATION}',
+        '${SUITE_MESSAGE}', '${SUITE_NAME}',
+        '${SUITE_SOURCE}', '${SUITE_STATUS}',
+        '${TEMPDIR}', '${True}',
+        '&{SUITE_METADATA}'
+    ]
+
+    def start_suite(self, name, attributes):
+        for name, value in GlobalVarsListener.variables.items():
+            if name not in GlobalVarsListener.black_list:
+                BuiltIn().set_global_variable(name, value)
+
+    def end_suite(self, name, attributes):
+        GlobalVarsListener.variables = BuiltIn().get_variables()
+
+
 class RobotKeywordsIndexerListener:
     ROBOT_LISTENER_API_VERSION = 2
 
