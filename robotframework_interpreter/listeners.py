@@ -35,13 +35,15 @@ class GlobalVarsListener:
         self.suite_vars = []
 
     def start_suite(self, name, attributes):
+        builtin = BuiltIn()
+
         for name, value in GlobalVarsListener.variables.items():
             if (name not in GlobalVarsListener.black_list
                     and name not in self.suite_vars):
-                BuiltIn().set_global_variable(name, value)
+                builtin._variables.set_global(name, value)
 
     def end_suite(self, name, attributes):
-        GlobalVarsListener.variables = BuiltIn().get_variables()
+        GlobalVarsListener.variables.update(BuiltIn().get_variables())
 
 
 class RobotKeywordsIndexerListener:
